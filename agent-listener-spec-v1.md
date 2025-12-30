@@ -1,154 +1,144 @@
-# CronCommander Agent–Listener Specification
+# CronCommander Agent–Listener Specification v1.3
 
-This document defines the contract between **agents** and the **listener** service.  
-The listener is responsible for maintaining persistent connections, authenticating agents, and delivering instructions.
-
----
-
-## Terminology
-
-- **Agent**: A lightweight binary running on a host, responsible for reporting status and executing instructions.
-- **Listener**: The backend service managing WebSocket connections from agents.
-- **Dashboard**: The web UI for operators (separate service).
+This document defines the WebSocket protocol between **cc-agent** and **cc-listener**.
+The listener is responsible for maintaining persistent connections, authenticating agents, and orchestrating job execution.
 
 ---
 
-## Connection Lifecycle
+## 1. Connection & Authentication
 
-### Registration
+### Handshake
+Agents connect via WebSocket to the listener URL (e.g., `ws://cc-listener:8081/agent`).
+Authentication is performed via HTTP Headers during the initial upgrade request.
 
-When an agent connects, it must send a `hello` message:
+**Headers:**
+- `X-CC-API-KEY`: The API key for authentication.
 
-```json
-{
-  "type": "hello",
-  "agent_id": "uuid",
-  "hostname": "server1.example.com",
-  "version": "1.0.0",
-  "capabilities": ["cron", "metrics"]
-}
-```
-
-The listener responds with:
-
-```json
-{
-  "type": "hello_ack",
-  "status": "ok",
-  "session_id": "uuid"
-}
-```
+If valid, the connection is upgraded. If invalid, the server returns `401 Unauthorized`.
 
 ---
 
-## Authentication
+## 2. Protocol Messages
 
-Agents authenticate using either:
+All messages are JSON objects with a `type` and a `payload`.
 
-- Token-based authentication (JWT or signed secret)
-- Mutual TLS (optional, for stronger identity)
+### 2.1 Registration
+Immediately after connection, the agent sends a registration message to identify itself and its capabilities.
 
-### Login message
+**Type:** `register`
 
+**Payload:**
 ```json
 {
-  "type": "login",
-  "agent_id": "uuid",
-  "token": "signed-jwt"
+  "hostname": "server-01",
+  "os": "linux",
+  "arch": "amd64",
+  "tags": ["prod", "db"],
+  "executionMode": "system",  // "user" or "system"
+  "isRoot": true               // true if process effective UID is 0
 }
 ```
 
-Response:
+*Note: The `executionMode` and `isRoot` fields inform the server about the agent's privilege level (Dual-Mode Model).*
 
+### 2.2 Heartbeat
+Agents send a heartbeat every 60 seconds (configurable) to maintain the connection.
+
+**Type:** `heartbeat`
+
+**Payload:** (Empty or Timestamp)
 ```json
 {
-  "type": "login_ack",
-  "status": "ok"
+  "timestamp": "2024-03-20T10:00:00Z"
 }
 ```
 
----
+### 2.3 Job Execution Instruction (Server -> Agent)
+The server sends this message to trigger a job execution.
 
-## Heartbeats
+**Type:** `execute_job`
 
-Agents must send a heartbeat every 30 seconds:
-
+**Payload:**
 ```json
 {
-  "type": "heartbeat",
-  "agent_id": "uuid",
-  "timestamp": 1734326400
+  "jobId": "uuid-123",
+  "command": "backup.sh",
+  "args": ["--full"],
+  "timeout": 3600
 }
 ```
 
-Listener responds with:
+### 2.4 Execution Report (Agent -> Server)
+After running a job, the agent reports the result.
 
+**Type:** `execution_report`
+
+**Payload:**
 ```json
 {
-  "type": "heartbeat_ack",
-  "status": "alive"
+  "jobId": "uuid-123",
+  "command": "backup.sh --full",
+  "exitCode": 0,
+  "stdout": "Backup complete...",
+  "stderr": "",
+  "startTime": "2024-03-20T10:00:00Z",
+  "durationMs": 1500,
+  "executingUid": 0,           // The UID that ran the process
+  "executingUser": "root",     // The username that ran the process
+  "warning": "Running as root..." // Optional security warning
 }
 ```
 
----
+### 2.5 Cron Refresh (Server -> Agent)
+The server pushes the full list of active cron jobs for the agent to synchronize its local cron file.
 
-## Instruction Delivery
+**Type:** `cron_refresh`
 
-### Push
-
-The listener pushes instructions only to agents with pending work:
-
+**Payload:**
 ```json
-{
-  "type": "instruction",
-  "id": "instr-123",
-  "payload": {
-    "action": "run",
-    "command": "cc-run --job backup"
+[
+  {
+    "id": "job-uuid-1",
+    "schedule": "0 0 * * *",
+    "command": "/opt/scripts/daily.sh"
+  },
+  {
+    "id": "job-uuid-2",
+    "schedule": "*/5 * * * *",
+    "command": "curl http://check.internal"
   }
-}
+]
 ```
 
-### Acknowledgment
-
-Agents must acknowledge each instruction:
-
-```json
-{
-  "type": "ack",
-  "id": "instr-123",
-  "status": "success"
-}
-```
+*In **User Mode**, these are written to the user's crontab.*
+*In **System Mode**, these are written to `/etc/cron.d/croncommander`.*
 
 ---
 
-## Error Handling
+## 3. Dual-Mode Privilege Model
 
-- Invalid message → error response with reason.
-- Unauthorized agent → connection closed.
-- Instruction failure → agent sends `ack` with `"status": "error"` and optional details.
+The protocol supports two operating modes for the agent:
 
----
+1.  **User Mode (Default)**
+    - Agent identifies with `executionMode: "user"`.
+    - `isRoot` should be `false`.
+    - Jobs are executed as the `cc-agent-user`.
 
-## Message Types Summary
-
-| Type            | Direction            | Purpose                          |
-|-----------------|----------------------|----------------------------------|
-| hello           | Agent → Listener     | Registration handshake           |
-| hello_ack       | Listener → Agent     | Registration confirmation        |
-| login           | Agent → Listener     | Authentication request           |
-| login_ack       | Listener → Agent     | Authentication confirmation      |
-| heartbeat       | Agent → Listener     | Liveness check                   |
-| heartbeat_ack   | Listener → Agent     | Liveness confirmation            |
-| instruction     | Listener → Agent     | Deliver work                     |
-| ack             | Agent → Listener     | Confirm instruction result       |
-| error           | Listener → Agent     | Report protocol error            |
+2.  **System Mode (Opt-in)**
+    - Agent identifies with `executionMode: "system"`.
+    - `isRoot` is usually `true`.
+    - Jobs are executed as `root` (UID 0).
+    - If `isRoot` is true but mode is User, the UI displays a security warning.
 
 ---
 
-## Transport & Security
+## 4. Message Flow Summary
 
-- WebSockets (`wss://`) with TLS 1.2+.
-- Optional mutual TLS for agent identity.
-- All payloads encoded as JSON (YAML discouraged for performance).
+| Type             | Direction        | Purpose                          |
+|------------------|------------------|----------------------------------|
+| register         | Agent → Server   | Initial identification           |
+| heartbeat        | Agent → Server   | Keep-alive                       |
+| execute_job      | Server → Agent   | Ad-hoc execution request         |
+| execution_report | Agent → Server   | Result of ad-hoc or cron job     |
+| cron_refresh     | Server → Agent   | Sync local cron schedule         |
+
