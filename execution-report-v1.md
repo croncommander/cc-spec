@@ -10,7 +10,7 @@ An **execution report** provides the complete result of a job run, including exi
 
 ## JSON Payload Structure
 
-The execution report is sent as a payload within the `execution_report` WebSocket message.
+The execution report is the JSON body of the HTTP v2 execution-report endpoint.
 
 ### Required Fields
 
@@ -66,4 +66,7 @@ The `warning` field is populated by the agent if it detects a configuration mism
 
 ## Transport
 
-Execution reports are transmitted via the persistent WebSocket connection (`cc-listener`) inside an `execution_report` message wrapper.
+Execution reports are sent to
+`POST /api/v2/agents/{agentId}/execution-reports` with an agent bearer token and
+a stable UUID in the `Idempotency-Key` header. See
+`agent-gateway-http-v2.md`.

@@ -1,5 +1,9 @@
 # CronCommander Agent–Listener Specification v1.3
 
+> **Historical:** WebSocket v1 was replaced directly by HTTP v2 before launch.
+> It is not supported by the current agent or listener. See
+> `agent-gateway-http-v2.md`.
+
 This document defines the WebSocket protocol between **cc-agent** and **cc-listener**.
 The listener is responsible for maintaining persistent connections, authenticating agents, and orchestrating job execution.
 
@@ -141,4 +145,3 @@ The protocol supports two operating modes for the agent:
 | execute_job      | Server → Agent   | Ad-hoc execution request         |
 | execution_report | Agent → Server   | Result of ad-hoc or cron job     |
 | cron_refresh     | Server → Agent   | Sync local cron schedule         |
-
