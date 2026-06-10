@@ -36,7 +36,8 @@ Request:
   "hostname": "worker-01",
   "os": "Ubuntu 24.04",
   "executionMode": "user",
-  "isRoot": false
+  "isRoot": false,
+  "version": "1.2.3"
 }
 ```
 
@@ -55,6 +56,10 @@ Registering an existing hostname in the same workspace renews its metadata and
 rotates its agent token. The workspace key is a bootstrap credential; poll and
 report requests use only the agent-scoped token.
 
+`version` is the agent binary build version. It is optional for compatibility
+with agents deployed before version reporting was added, and is limited to 50
+characters after control-character removal and whitespace trimming.
+
 ## 4. Heartbeat and desired-state poll
 
 `POST /api/v2/agents/{agentId}/poll`
@@ -63,7 +68,8 @@ Request:
 
 ```json
 {
-  "manifestVersion": "previous-sha256-version"
+  "manifestVersion": "previous-sha256-version",
+  "version": "1.2.3"
 }
 ```
 
@@ -95,7 +101,9 @@ Unchanged response:
 
 Every authenticated poll updates persisted agent liveness. Agents wait a
 uniformly random 30-90 seconds between successful polls and randomize their
-initial delay.
+initial delay. Agents also include their current binary `version` so upgrades
+are reflected without requiring re-registration. As in registration, this
+field is optional for compatibility and limited to 50 normalized characters.
 
 ## 5. Execution reports
 
