@@ -26,9 +26,7 @@ It intentionally does **not** define:
 - `agent-gateway-http-v2.md` — Current HTTPS agent/gateway contract
 - `execution-report-v1.md` — Canonical format for reporting cron job executions
 
-`agent-listener-spec-v1.md` is the historical WebSocket contract. There is no
-v1 compatibility period because CronCommander had no production agent fleet
-when HTTP v2 replaced it.
+`agent-listener-spec-v1.md` is the historical WebSocket contract.
 
 ## Versioning
 
