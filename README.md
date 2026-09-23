@@ -1,8 +1,7 @@
 # cc-spec
 
-This repository contains the versioned interface specifications for the
-CronCommander project. It is private while the next agent transport is being
-designed.
+This public repository contains the versioned interface specifications for the
+CronCommander project. HTTP v2 is the current agent transport.
 
 The specifications defined here describe the stable contracts between CronCommander components,
 such as job runners, agents, and the central server. These documents are intended to be:
@@ -33,8 +32,8 @@ It intentionally does **not** define:
 Breaking changes to a specification require a new major version.
 Minor, backward-compatible additions may be made within a version.
 
-The repository can be made public again after the HTTP contract is stable and
-the documents have been reviewed for internal implementation details.
+Only stable, reviewed cross-component contracts belong here. Private planning,
+implementation details, and product backlog material remain in `cc-server`.
 
 ## Project
 
