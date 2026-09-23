@@ -94,7 +94,10 @@ After running a job, the agent reports the result.
 ```
 
 ### 2.5 Cron Refresh (Server -> Agent)
-The server pushes the full list of active cron jobs for the agent to synchronize its local cron file.
+The server pushes the deterministic, plan-eligible list of active cron jobs for
+the agent to synchronize its local cron file. A plan downgrade may leave enabled
+definitions in the control plane with `OVER_LIMIT` status while omitting only
+the excess definitions from this manifest; the definitions are not deleted.
 
 **Type:** `cron_refresh`
 

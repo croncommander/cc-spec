@@ -105,6 +105,13 @@ initial delay. Agents also include their current binary `version` so upgrades
 are reflected without requiring re-registration. As in registration, this
 field is optional for compatibility and limited to 50 normalized characters.
 
+The manifest is deterministic and contains only enabled jobs that are eligible
+for the client's current plan: 10 per agent on Free, 25 on Starter, 100 on Pro,
+and unlimited on Agency. Global jobs count toward the limit on every target
+agent. A downgrade does not delete definitions; excess jobs remain in the
+control plane with an `OVER_LIMIT` status and are omitted from the manifest
+until capacity becomes available.
+
 ## 5. Cron discovery reports
 
 `POST /api/v2/agents/{agentId}/discovery-reports`
