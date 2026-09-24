@@ -22,10 +22,10 @@ It intentionally does **not** define:
 
 ## Current specifications
 
-- `agent-gateway-http-v2.md` — Current HTTPS agent/gateway contract
-- `execution-report-v1.md` — Canonical format for reporting cron job executions
+- [Agent-Gateway HTTP API v2](agent-gateway-http-v2.md) — Current HTTPS agent/gateway contract
+- [Execution Report v1](execution-report-v1.md) — Canonical format for reporting cron job executions
 
-`agent-listener-spec-v1.md` is the historical WebSocket contract.
+[Agent-Listener v1](agent-listener-spec-v1.md) is the historical WebSocket contract.
 
 ## Versioning
 
@@ -34,6 +34,12 @@ Minor, backward-compatible additions may be made within a version.
 
 Only stable, reviewed cross-component contracts belong here. Private planning,
 implementation details, and product backlog material remain in `cc-server`.
+
+## Validation
+
+Run `./tools/validate-specs.sh` before publishing specification changes. The
+same validation runs in CI and checks the required versioned documents,
+cross-document links, core HTTP v2 contract markers, and Markdown hygiene.
 
 ## Project
 
